@@ -57,23 +57,49 @@ end
 --[=[
 	@class Observer
 
-	- Wally Package: [Syscore](https://wally.run/package/naxious/syscore)
+	- Wally Package: [Observer](https://wally.run/package/naxious/observer)
 
 	A typed observer that notifies subscribers when its value changes.
 
 	Here's an example of how to use the Observer class:
+	`Setup Event Module`
 	```lua
 	local Observer = require(path.to.Observer)
 
-	local observerEvent = Observer.client.example
+	local events = {
+		["PlayerDamaged"] = Observer.Create("PlayerDamaged") :: Observer.Event<number>,
+		["MorningTime"] = Observer.Create("PlayerJoined") :: Observer.Event<string>,
+	}
 
-	local id = observerEvent:Subscribe(function(value: string)
-		print("Value changed to", value)
+	return events
+	```
+	`Subscribe to an Event in any Module`
+	```lua
+	local events = require(path.to.Events)
+
+	events.MorningTime:Subscribe(function(morningString: string)
+		if morningString == "Good Morning" then
+			print(`{morningString}! It's a awesome day!`)
+		elseif morningString == "Bad Morning" then
+			print(`{morningString}! It's what we get when it rains!`)
+		end
 	end)
 
-	observerEvent:Set("Hello, world!") -- Value changed to Hello, world!
+	events.PlayerDamaged:Subscribe(function(damage: number)
+		print(`Player took {damage} damage!`)
+		player:ShakeScreen() -- example function
+		particles:SpawnBlood(player.Position) -- example function
+	end)
+	```
+	`Set the Event Value in any Module`
+	```lua
+	local events = require(path.to.Events)
 
-	observerEvent:Unsubscribe(id)
+	events.MorningTime:Set("Good Morning")
+
+	while player:IsStandingInFire() do
+		events.PlayerDamaged:Set(10)
+	end
 	```
 ]=]
 
