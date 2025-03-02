@@ -1,4 +1,16 @@
 --!strict
+--[=[
+	@within Observer
+	@interface Event<T>
+	.Subscribe (callback: (T) -> ()) -> T -- Returns the subscription id
+	.Unsubscribe (id: number) -> () -- Unsubscribes the callback
+	.Set (value: T) -> () -- Sets the value of the event
+	.Get () -> T? -- Gets the value of the event
+	.Clear () -> () -- Clears the value of the event
+	.Destroy () -> () -- Destroys the event
+
+	Represents an event that can be subscribed to and triggered.
+]=]
 export type Event<T> = {
 	Subscribe: (self: Event<T>, callback: (T) -> ()) -> T,
 	Unsubscribe: (self: Event<T>, id: number) -> (),
