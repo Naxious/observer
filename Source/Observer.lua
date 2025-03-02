@@ -56,7 +56,25 @@ end
 
 --[=[
     @class Observer
+
+	- Wally Package: [Syscore](https://wally.run/package/naxious/syscore)
+
     A typed observer that notifies subscribers when its value changes.
+
+	Here's an example of how to use the Observer class:
+	```lua
+	local Observer = require(path.to.Observer)
+
+	local observerEvent = Observer.client.example
+
+	local id = observerEvent:Subscribe(function(value: string)
+		print("Value changed to", value)
+	end)
+
+	observerEvent:Set("Hello, world!") -- Value changed to Hello, world!
+
+	observerEvent:Unsubscribe(id)
+	```
 ]=]
 
 local Observer = {}
