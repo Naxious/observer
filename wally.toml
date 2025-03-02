@@ -1,0 +1,19 @@
+[package]
+name = "naxious/observer"
+version = "1.0.0"
+registry = "https://github.com/UpliftGames/wally-index"
+realm = "shared"
+
+description = "an observer class for Roblox that supports types"
+homepage = "https://naxious.github.io/naxdocs/"
+
+exclude = ["**"]
+include = [
+    "Source",
+    "Source/*",
+    "default.project.json",
+    "wally.lock",
+    "wally.toml",
+]
+
+[dependencies]

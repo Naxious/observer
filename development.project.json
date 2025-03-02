@@ -1,0 +1,14 @@
+{
+    "name": "observer",
+    "emitLegacyScripts": false,
+    "tree": {
+        "$className": "DataModel",
+        "ReplicatedStorage": {
+            "$className": "ReplicatedStorage",
+            "$ignoreUnknownInstances": true,
+            "Observer": {
+                "$path": "Source"
+            }   
+        }
+    }
+}
