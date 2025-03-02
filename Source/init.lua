@@ -20,8 +20,7 @@ export type Event<T> = {
 	Destroy: (self: Event<T>) -> (),
 }
 
--- Internal storage for observers
-local _observers: { [string]: {
+local observers: { [string]: {
 	value: any?,
 	callbacks: { [number]: (any) -> () },
 } } = {}
@@ -30,37 +29,37 @@ local function createEvent<T>(name: string): Event<T>
 	local event = {} :: any
 
 	function event:Subscribe(callback: (T) -> ())
-		local id = #_observers[name].callbacks + 1
-		_observers[name].callbacks[id] = callback
+		local id = #observers[name].callbacks + 1
+		observers[name].callbacks[id] = callback
 
-		if _observers[name].value ~= nil then
-			callback(_observers[name].value :: T)
+		if observers[name].value ~= nil then
+			callback(observers[name].value :: T)
 		end
 
 		return id
 	end
 
 	function event:Unsubscribe(id: number)
-		_observers[name].callbacks[id] = nil
+		observers[name].callbacks[id] = nil
 	end
 
 	function event:Set(value: T)
-		_observers[name].value = value
-		for _, callback in _observers[name].callbacks do
+		observers[name].value = value
+		for _, callback in observers[name].callbacks do
 			callback(value)
 		end
 	end
 
 	function event:Get(): T?
-		return _observers[name].value :: T?
+		return observers[name].value :: T?
 	end
 
 	function event:Clear()
-		_observers[name].value = nil
+		observers[name].value = nil
 	end
 
 	function event:Destroy()
-		_observers[name] = nil
+		observers[name] = nil
 	end
 
 	return event :: Event<T>
@@ -72,9 +71,16 @@ end
 	- Wally Package: [Observer](https://wally.run/package/naxious/observer)
 
 	A typed observer that notifies subscribers when its value changes.
+	Observers can be created and subscribed to from any module.
+	They are useful for decoupling modules and creating a more modular codebase.
+	The Observer class is a singleton and should not be instantiated.
+	The Observer class provides two methods for creating and getting observers.
+	You can create an observer with a specific type and subscribe to it with a callback.
+	When the observer's value changes, all subscribed callbacks are called with the new value.
+	
 
 	Here's an example of how to use the Observer class:
-	`Setup Event Module`
+	`Firstly, Setup Event Module`
 	```lua
 	local Observer = require(path.to.Observer)
 
@@ -85,7 +91,7 @@ end
 
 	return events
 	```
-	`Subscribe to an Event in any Module`
+	`Secondly, Subscribe to an Event in any Module`
 	```lua
 	local events = require(path.to.Events)
 
@@ -103,7 +109,7 @@ end
 		particles:SpawnBlood(player.Position) -- example function
 	end)
 	```
-	`Set the Event Value in any Module`
+	`Lastly, Set the Event Value in any Module`
 	```lua
 	local events = require(path.to.Events)
 
@@ -113,17 +119,34 @@ end
 		events.PlayerDamaged:Set(10)
 	end
 	```
+
+	:::note
+		Observers are client/server specific and cannot be shared between them.
+		You would need to create a separate observer for each side.
+		OR create some sort of networked event system to communicate between them.
+	:::
 ]=]
 
 local Observer = {}
 
 --[=[
     Creates a new typed observer with the specified name.
+
+	```lua
+	local Observer = require(path.to.Observer)
+
+	local events = {
+		["PlayerDamaged"] = Observer.Create("PlayerDamaged") :: Observer.Event<number>,
+		["MorningTime"] = Observer.Create("PlayerJoined") :: Observer.Event<string>,
+	}
+
+	return events
+	```
 ]=]
 function Observer.Create<T>(name: string): Event<T>
-	assert(not _observers[name], `Observer '${name}' already exists`)
+	assert(not observers[name], `Observer '${name}' already exists`)
 
-	_observers[name] = {
+	observers[name] = {
 		value = nil,
 		callbacks = {},
 	}
@@ -135,9 +158,20 @@ end
 
 --[=[
     Gets an existing observer or creates a new one if it doesn't exist.
+
+	```lua
+	local Observer = require(path.to.Observer)
+
+	local events = {
+		["PlayerDamaged"] = Observer.Get("PlayerDamaged") :: Observer.Event<number>,
+		["MorningTime"] = Observer.Get("PlayerJoined") :: Observer.Event<string>,
+	}
+
+	return events
+	```
 ]=]
 function Observer.Get<T>(name: string): Event<T>
-	if not _observers[name] then
+	if not observers[name] then
 		return Observer.Create(name) :: Event<T>
 	end
 
