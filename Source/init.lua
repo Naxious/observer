@@ -55,11 +55,11 @@ local function createEvent<T>(name: string): Event<T>
 end
 
 --[=[
-    @class Observer
+	@class Observer
 
 	- Wally Package: [Syscore](https://wally.run/package/naxious/syscore)
 
-    A typed observer that notifies subscribers when its value changes.
+	A typed observer that notifies subscribers when its value changes.
 
 	Here's an example of how to use the Observer class:
 	```lua
