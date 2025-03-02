@@ -130,7 +130,7 @@ end
 local Observer = {}
 
 --[=[
-    Creates a new typed observer with the specified name.
+	Creates a new typed observer with the specified name.
 
 	```lua
 	local Observer = require(path.to.Observer)
@@ -157,7 +157,7 @@ function Observer.Create<T>(name: string): Event<T>
 end
 
 --[=[
-    Gets an existing observer or creates a new one if it doesn't exist.
+	Gets an existing observer or creates a new one if it doesn't exist.
 
 	```lua
 	local Observer = require(path.to.Observer)
