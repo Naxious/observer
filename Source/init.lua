@@ -1,69 +1,39 @@
 --!strict
+local RunService = game:GetService("RunService")
+local HTTPService = game:GetService("HttpService")
+
+local VERSION = "1.0.0"
+
+if RunService:IsServer() then
+	warn(`👀 v{VERSION}`)
+end
+
 --[=[
 	@within Observer
-	@interface Event<T>
-	.Subscribe (callback: (T) -> ()) -> T -- Returns the subscription id
-	.Unsubscribe (id: number) -> () -- Unsubscribes the callback
-	.Set (value: T) -> () -- Sets the value of the event
-	.Get () -> T? -- Gets the value of the event
-	.Clear () -> () -- Clears the value of the event
-	.Destroy () -> () -- Destroys the event
-
-	Represents an event that can be subscribed to and triggered.
+	@interface Connection
+	.Disconnect (self: Connection) -> () -- Disconnects the connection, removing the callback from the event.
 ]=]
-export type Event<T> = {
-	Subscribe: (self: Event<T>, callback: (T) -> ()) -> T,
-	Unsubscribe: (self: Event<T>, id: number) -> (),
-	Set: (self: Event<T>, value: T) -> (),
-	Get: (self: Event<T>) -> T?,
-	Clear: (self: Event<T>) -> (),
-	Destroy: (self: Event<T>) -> (),
+export type Connection = {
+	Disconnect: (self: Connection) -> (),
 }
 
+--[=[
+	@within Observer
+	@interface Event<T...>
+
+	.Connect (self: Event<T...>, callback: (...any) -> ()) -> Connection -- Connects a callback to the event. The callback will be called with the event's parameters when the event is fired.
+	.Fire (self: Event<T...>, ...: T...) -> () -- Fires the event with the given parameters. All connected callbacks will be called with these parameters.
+]=]
+export type Event<T...> = {
+	Connect: (self: Event<T...>, callback: (...any) -> ()) -> Connection,
+	Fire: (self: Event<T...>, T...) -> (),
+}
+
+local events: { [string]: any } = {}
+
 local observers: { [string]: {
-	value: any?,
-	callbacks: { [number]: (any) -> () },
+	callbacks: { [string]: (...any) -> () },
 } } = {}
-
-local function createEvent<T>(name: string): Event<T>
-	local event = {} :: any
-
-	function event:Subscribe(callback: (T) -> ())
-		local id = #observers[name].callbacks + 1
-		observers[name].callbacks[id] = callback
-
-		if observers[name].value ~= nil then
-			callback(observers[name].value :: T)
-		end
-
-		return id
-	end
-
-	function event:Unsubscribe(id: number)
-		observers[name].callbacks[id] = nil
-	end
-
-	function event:Set(value: T)
-		observers[name].value = value
-		for _, callback in observers[name].callbacks do
-			callback(value)
-		end
-	end
-
-	function event:Get(): T?
-		return observers[name].value :: T?
-	end
-
-	function event:Clear()
-		observers[name].value = nil
-	end
-
-	function event:Destroy()
-		observers[name] = nil
-	end
-
-	return event :: Event<T>
-end
 
 --[=[
 	@class Observer
@@ -77,7 +47,8 @@ end
 	The Observer class provides two methods for creating and getting observers.
 	You can create an observer with a specific type and subscribe to it with a callback.
 	When the observer's value changes, all subscribed callbacks are called with the new value.
-	
+
+	One of my favorite explanations of the observer pattern is from [Refactoring Guru](https://refactoring.guru/design-patterns/observer).
 
 	Here's an example of how to use the Observer class:
 	`Firstly, Setup Event Module`
@@ -85,17 +56,17 @@ end
 	local Observer = require(path.to.Observer)
 
 	local events = {
-		["PlayerDamaged"] = Observer.Create("PlayerDamaged") :: Observer.Event<number>,
-		["MorningTime"] = Observer.Create("PlayerJoined") :: Observer.Event<string>,
+		["PlayerDamaged"] = Observer.Create("PlayerDamaged") :: Observer.Event<Player, number>,
+		["MorningTime"] = Observer.Create("MorningTime") :: Observer.Event<string>,
 	}
 
 	return events
 	```
-	`Secondly, Subscribe to an Event in any Module`
+	`Secondly, Connect to an Event in any Module`
 	```lua
 	local events = require(path.to.Events)
 
-	events.MorningTime:Subscribe(function(morningString: string)
+	events.MorningTime:Connect(function(morningString: string)
 		if morningString == "Good Morning" then
 			print(`{morningString}! It's a awesome day!`)
 		elseif morningString == "Bad Morning" then
@@ -103,20 +74,20 @@ end
 		end
 	end)
 
-	events.PlayerDamaged:Subscribe(function(damage: number)
-		print(`Player took {damage} damage!`)
-		player:ShakeScreen() -- example function
-		particles:SpawnBlood(player.Position) -- example function
+	events.PlayerDamaged:Connect(function(player: Player, damage: number)
+		print(`{player.Name} took {damage} damage!`)
+		playerEffects:ShakeScreen() -- example function
+		particleSystem:BloodSplatter(player.Position) -- example function
 	end)
 	```
-	`Lastly, Set the Event Value in any Module`
+	`Lastly, Fire the Event Value in any Module`
 	```lua
 	local events = require(path.to.Events)
 
-	events.MorningTime:Set("Good Morning")
+	events.MorningTime:Fire("Good Morning")
 
 	while player:IsStandingInFire() do
-		events.PlayerDamaged:Set(10)
+		events.PlayerDamaged:Fire(10)
 	end
 	```
 
@@ -129,6 +100,36 @@ end
 
 local Observer = {}
 
+local function createEvent<T...>(name: string): Event<T...>
+	local event = {}
+
+	function event:Connect(callback: (T...) -> ()): Connection
+		if not observers[name] then
+			Observer.Create(name)
+		end
+		local id = HTTPService:GenerateGUID(false)
+		observers[name].callbacks[id] = callback
+
+		return {
+			Disconnect = function()
+				observers[name].callbacks[id] = nil
+			end,
+		}
+	end
+
+	function event:Fire(...: T...)
+		if not observers[name] then
+			return
+		end
+
+		for _, callback in observers[name].callbacks do
+			callback(...)
+		end
+	end
+
+	return event :: Event<T...>
+end
+
 --[=[
 	Creates a new typed observer with the specified name.
 
@@ -136,48 +137,25 @@ local Observer = {}
 	local Observer = require(path.to.Observer)
 
 	local events = {
-		["PlayerDamaged"] = Observer.Create("PlayerDamaged") :: Observer.Event<number>,
-		["MorningTime"] = Observer.Create("PlayerJoined") :: Observer.Event<string>,
+		["PlayerDamaged"] = Observer.Create("PlayerDamaged") :: Observer.Event<Player, number>,
+		["MorningTime"] = Observer.Create("MorningTime") :: Observer.Event<string>,
 	}
 
 	return events
 	```
 ]=]
-function Observer.Create<T>(name: string): Event<T>
+
+function Observer.Create<T...>(name: string): Event<T...>
 	assert(not observers[name], `Observer '${name}' already exists`)
 
 	observers[name] = {
-		value = nil,
 		callbacks = {},
 	}
 
 	local event = createEvent(name)
+	events[name] = event
 
-	return event :: Event<T>
-end
-
---[=[
-	Gets an existing observer or creates a new one if it doesn't exist.
-
-	```lua
-	local Observer = require(path.to.Observer)
-
-	local events = {
-		["PlayerDamaged"] = Observer.Get("PlayerDamaged") :: Observer.Event<number>,
-		["MorningTime"] = Observer.Get("PlayerJoined") :: Observer.Event<string>,
-	}
-
-	return events
-	```
-]=]
-function Observer.Get<T>(name: string): Event<T>
-	if not observers[name] then
-		return Observer.Create(name) :: Event<T>
-	end
-
-	local event = createEvent(name)
-
-	return event :: Event<T>
+	return event :: Event<T...>
 end
 
 return Observer
